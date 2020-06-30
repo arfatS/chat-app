@@ -2,6 +2,7 @@ const path = require('path')
 const http = require('http')
 const express = require('express')
 const socketio = require('socket.io')
+const Filter = require('bad-words')
 
 const port = process.env.PORT || 3000
 
@@ -17,12 +18,30 @@ app.use(express.static(publicPath))
 io.on('connection', (socket) => {
     console.log('New WebSocket connected')
 
-    const welcome = 'Welcome to Chat App!'
-    socket.emit('welcomeUser', welcome)
+    socket.emit('message', 'Welcome to Chat App!')
+    socket.broadcast.emit('message', 'A new user has joined.')
 
-    socket.on('sendMessage', (message) => {
-        io.emit('sendMessage',message)
+    socket.on('disconnect', (socket) => {
+        io.emit('message', 'A user has left.')
     })
+
+    socket.on('sendMessage', (message, acknowledge) => {
+
+        const filter = new Filter()
+
+        if (filter.isProfane(message)) {
+            return acknowledge('Profanity is not allowed.')
+        }
+
+        io.emit('message',message)
+        acknowledge()
+    })
+
+    socket.on('sendLocation', (location, acknowledge) => {
+        io.emit('locationMessage', `https://google.com/maps?q=${location.latitude},${location.longitude}`)
+        acknowledge()
+    })
+
 })
 
 
